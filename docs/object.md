@@ -606,6 +606,23 @@ foo
 // {0: "h", 1: "e", 2: "l", 3: "l", 4: "o"}
 ```
 
+对象的扩展运算符，只会返回参数对象自身的、可枚举的属性，这一点要特别小心，尤其是用于类的实例对象时。
+
+```javascript
+class C {
+  p = 12;
+  m() {}
+}
+
+let c = new C();
+let clone = { ...c };
+
+clone.p; // ok
+clone.m(); // 报错
+```
+
+上面示例中，`c`是`C`类的实例对象，对其进行扩展运算时，只会返回`c`自身的属性`c.p`，而不会返回`c`的方法`c.m()`，因为这个方法定义在`C`的原型对象上（详见 Class 的章节）。
+
 对象的扩展运算符等同于使用`Object.assign()`方法。
 
 ```javascript
@@ -703,4 +720,78 @@ let aWithXGetter = { ...a }; // 报错
 ```
 
 上面例子中，取值函数`get`在扩展`a`对象时会自动执行，导致报错。
+
+## AggregateError 错误对象
+
+ES2021 标准之中，为了配合新增的`Promise.any()`方法（详见《Promise 对象》一章），还引入一个新的错误对象`AggregateError`，也放在这一章介绍。
+
+AggregateError 在一个错误对象里面，封装了多个错误。如果某个单一操作，同时引发了多个错误，需要同时抛出这些错误，那么就可以抛出一个 AggregateError 错误对象，把各种错误都放在这个对象里面。
+
+AggregateError 本身是一个构造函数，用来生成 AggregateError 实例对象。
+
+```javascript
+AggregateError(errors[, message])
+```
+
+`AggregateError()`构造函数可以接受两个参数。
+
+- errors：数组，它的每个成员都是一个错误对象。该参数是必须的。
+- message：字符串，表示 AggregateError 抛出时的提示信息。该参数是可选的。
+
+```javascript
+const error = new AggregateError([
+  new Error('ERROR_11112'),
+  new TypeError('First name must be a string'),
+  new RangeError('Transaction value must be at least 1'),
+  new URIError('User profile link must be https'),
+], 'Transaction cannot be processed')
+```
+
+上面示例中，`AggregateError()`的第一个参数数组里面，一共有四个错误实例。第二个参数字符串则是这四个错误的一个整体的提示。
+
+`AggregateError`的实例对象有三个属性。
+
+- name：错误名称，默认为“AggregateError”。
+- message：错误的提示信息。
+- errors：数组，每个成员都是一个错误对象。
+
+下面是一个示例。
+
+```javascript
+try {
+  throw new AggregateError([
+    new Error("some error"),
+  ], 'Hello');
+} catch (e) {
+  console.log(e instanceof AggregateError); // true
+  console.log(e.message);                   // "Hello"
+  console.log(e.name);                      // "AggregateError"
+  console.log(e.errors);                    // [ Error: "some error" ]
+}
+```
+
+## Error 对象的 cause 属性
+
+Error 对象用来表示代码运行时的异常情况，但是从这个对象拿到的上下文信息，有时很难解读，也不够充分。[ES2022](https://github.com/tc39/proposal-error-cause) 为 Error 对象添加了一个`cause`属性，可以在生成错误时，添加报错原因的描述。
+
+它的用法是`new Error()`生成 Error 实例时，给出一个描述对象，该对象可以设置`cause`属性。
+
+```javascript
+const actual = new Error('an error!', { cause: 'Error cause' });
+actual.cause; // 'Error cause'
+```
+
+上面示例中，生成 Error 实例时，使用描述对象给出`cause`属性，写入报错的原因。然后，就可以从实例对象上读取这个属性。
+
+`casue`属性可以放置任意内容，不必一定是字符串。
+
+```javascript
+try {
+  maybeWorks();
+} catch (err) {
+  throw new Error('maybeWorks failed!', { cause: err });
+}
+```
+
+上面示例中，`cause`属性放置的就是一个对象。
 
